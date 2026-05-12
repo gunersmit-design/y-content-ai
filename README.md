@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+Firebase API Key
 
-## Getting Started
+อยู่บัญชี witsanu19
 
-First, run the development server:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBGNHE_SsEEPboe0f_dGw9AwSkgW1kYclw",
+  authDomain: "contentai-1f9f4.firebaseapp.com",
+  projectId: "contentai-1f9f4",
+  storageBucket: "contentai-1f9f4.firebasestorage.app",
+  messagingSenderId: "338296412264",
+  appId: "1:338296412264:web:ea637bfdc3239a7c7243dd",
+  measurementId: "G-X0NQZBRB0J"
+};
 
-## Learn More
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
-To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+สิ่งที่ต้องเพิ่ม/ทำ
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+1 เพิ่มปุ่มล้างค่า
+
+2 สไตล์วิดีโอ
+-อยากปรับให้เป็นคำไทยทั้งหมดอะ เช่น แนวการตูน 3d แนวคน อะไรเป็นต้นที่ผม แนะนำมาถ้านายมีไรแนะนำใส่มาให้ผมได้เลย
+
+3 จะแขวนเซิฟเปิดจากลิ้งได้ตลอดเวลา โดยใช้ firebase ได้ไหม
+
+
+นายมีอะไรแนะนำเกี่ยวกับระบบนี้แนะนำมาได้เลย
