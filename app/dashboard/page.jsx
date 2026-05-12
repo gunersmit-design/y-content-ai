@@ -1,7 +1,7 @@
 // app/dashboard/page.jsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
@@ -12,16 +12,153 @@ import DownloadButton from '@/components/DownloadButton'
 
 console.log('[dashboard/page.jsx] โหลดไฟล์ dashboard/page.jsx แล้ว')
 
+// ── GeminiStatusBox Component ─────────────────────────────
+function GeminiStatusBox() {
+  const [statusData, setStatusData] = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [lastChecked, setLastChecked] = useState(null)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const fetchStatus = useCallback(async () => {
+    console.log('[GeminiStatusBox] กำลังเช็ค Gemini status...')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/gemini-status')
+      const data = await res.json()
+      setStatusData(data)
+      setLastChecked(new Date())
+      console.log('[GeminiStatusBox] ได้ status:', data)
+    } catch (err) {
+      console.error('[GeminiStatusBox] ERROR:', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // เช็คครั้งแรกตอน mount
+  useEffect(() => { fetchStatus() }, [fetchStatus])
+
+  // สีและ label ตาม status
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'ok':          return { dot: 'bg-green-400', text: 'text-green-600', label: 'พร้อมใช้งาน' }
+      case 'quota':       return { dot: 'bg-yellow-400', text: 'text-yellow-600', label: 'Quota เต็ม' }
+      case 'unavailable': return { dot: 'bg-gray-300',   text: 'text-gray-400',   label: 'ไม่พร้อมใช้' }
+      case 'auth_error':  return { dot: 'bg-red-400',    text: 'text-red-500',    label: 'API Key ผิด' }
+      default:            return { dot: 'bg-red-400',    text: 'text-red-500',    label: 'มีข้อผิดพลาด' }
+    }
+  }
+
+  const availableCount = statusData?.models?.filter(m => m.status === 'ok').length ?? 0
+  const totalCount     = statusData?.models?.length ?? 0
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🤖</span>
+          <span className="text-sm font-semibold text-gray-700">Gemini API Status</span>
+          {statusData && !loading && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              availableCount > 0
+                ? 'bg-green-50 text-green-600'
+                : 'bg-red-50 text-red-500'
+            }`}>
+              {availableCount}/{totalCount} พร้อมใช้
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {lastChecked && (
+            <span className="text-xs text-gray-400">
+              เช็คล่าสุด {lastChecked.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={fetchStatus}
+            disabled={loading}
+            className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 hover:bg-purple-50 rounded-lg px-2.5 py-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {loading ? '⏳' : '🔄 รีเฟรช'}
+          </button>
+          <button
+            onClick={() => setIsExpanded(p => !p)}
+            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1 transition"
+          >
+            {isExpanded ? '▲ ย่อ' : '▼ รายละเอียด'}
+          </button>
+        </div>
+      </div>
+
+      {/* Loading skeleton */}
+      {loading && !statusData && (
+        <div className="mt-3 flex gap-2">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="flex-1 h-8 bg-gray-100 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Mini status bar (collapsed) */}
+      {statusData && !isExpanded && (
+        <div className="mt-3 flex gap-2">
+          {statusData.models.map((m) => {
+            const s = getStatusStyle(m.status)
+            return (
+              <div
+                key={m.name}
+                className="flex-1 flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5"
+                title={m.error || s.label}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${s.dot} ${m.status === 'ok' ? 'animate-pulse' : ''}`} />
+                <span className="text-xs text-gray-600 truncate">{m.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Expanded detail */}
+      {statusData && isExpanded && (
+        <div className="mt-3 space-y-2">
+          {statusData.models.map((m) => {
+            const s = getStatusStyle(m.status)
+            return (
+              <div key={m.name} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${s.dot} ${m.status === 'ok' ? 'animate-pulse' : ''}`} />
+                  <span className="text-sm text-gray-700 font-medium">{m.label}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {m.status === 'ok' && (
+                    <span className="text-xs text-gray-400">{m.latencyMs}ms</span>
+                  )}
+                  {m.error && (
+                    <span className="text-xs text-gray-400">{m.error}</span>
+                  )}
+                  <span className={`text-xs font-medium ${s.text}`}>{s.label}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Dashboard Page ────────────────────────────────────────
 export default function DashboardPage() {
   console.log('[dashboard] โหลดหน้า Dashboard')
 
   const router = useRouter()
-  const [user, setUser]           = useState(null)
+  const [user, setUser]               = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult]       = useState(null)
-  const [history, setHistory]     = useState([])
-  const [error, setError]         = useState(null)
+  const [isLoading, setIsLoading]     = useState(false)
+  const [result, setResult]           = useState(null)
+  const [history, setHistory]         = useState([])
+  const [error, setError]             = useState(null)
   const [productName, setProductName] = useState('')
 
   // ── Auth Guard ────────────────────────────────────────
@@ -103,7 +240,6 @@ export default function DashboardPage() {
       setResult(data.content)
       console.log('[dashboard/page.jsx] set result สำเร็จ')
 
-      // รีเฟรช history หลัง generate สำเร็จ
       await fetchHistory(user.uid)
 
     } catch (err) {
@@ -141,12 +277,15 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
+      <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
 
         <div>
           <h2 className="text-2xl font-bold text-gray-800">สร้าง Content สินค้า</h2>
           <p className="text-gray-500 text-sm mt-1">กรอกข้อมูลสินค้า แล้วให้ AI สร้าง Content ให้คุณ</p>
         </div>
+
+        {/* Gemini Status Box */}
+        <GeminiStatusBox />
 
         {/* Form */}
         <ProductForm onSubmit={handleGenerate} isLoading={isLoading} />
@@ -162,7 +301,6 @@ export default function DashboardPage() {
         {result && (
           <div className="space-y-4">
             <ResultBox result={result} />
-            {/* 🔴 BUG FIX: เปลี่ยน prop จาก result → content */}
             <DownloadButton content={result} productName={productName} />
           </div>
         )}
