@@ -6,22 +6,24 @@ import { useState, useRef } from 'react'
 console.log('[ProductForm.jsx] โหลดไฟล์ ProductForm.jsx แล้ว')
 
 const VIDEO_STYLE_OPTIONS = [
-  { value: 'cinematic', label: '🎬 Cinematic' },
-  { value: 'anime', label: '🎌 Anime' },
-  { value: 'realistic', label: '📷 Realistic' },
-  { value: 'cartoon', label: '🎨 Cartoon' },
-  { value: '3d render', label: '💎 3D Render' },
-  { value: 'documentary', label: '🎥 Documentary' },
+  { value: 'cinematic',    label: '🎬 แนวภาพยนตร์',   desc: 'Cinematic — ดราม่า แสง-เงาสวย' },
+  { value: 'anime',        label: '🎌 แนวอนิเมะ',     desc: 'Anime — สีสดใส ตัวการ์ตูนญี่ปุ่น' },
+  { value: 'realistic',    label: '📷 แนวสมจริง',     desc: 'Realistic — เหมือนถ่ายจริง' },
+  { value: 'cartoon',      label: '🎨 แนวการ์ตูน',    desc: 'Cartoon — สีสด เส้นชัด ดูสนุก' },
+  { value: '3d render',    label: '💎 แนว 3D',        desc: '3D Render — วัตถุมีมิติ ดูพรีเมียม' },
+  { value: 'documentary',  label: '🎥 แนวสารคดี',     desc: 'Documentary — ดูน่าเชื่อถือ จริงจัง' },
+  { value: 'fantasy',      label: '✨ แนวแฟนตาซี',    desc: 'Fantasy — เวทมนตร์ ดูมหัศจรรย์' },
+  { value: 'neon sci-fi',  label: '🌃 แนวนีออน/ไซไฟ', desc: 'Neon Sci-Fi — อนาคต ไฟสี เท่' },
 ]
 
 const AI_TARGET_OPTIONS = [
-  { value: 'gemini',   label: '✨ Gemini Pro',  desc: 'Google — วิเคราะห์สินค้าลึก ภาษาไทยเป๊ะ' },
-  { value: 'kling',    label: '🎬 Kling AI',    desc: 'Kuaishou — เน้น motion สมจริง' },
-  { value: 'runway',   label: '🛫 Runway Gen-4', desc: 'เน้น cinematic & effects' },
-  { value: 'hailuo',   label: '🌊 Hailuo AI',   desc: 'MiniMax — เน้นตัวละคร' },
-  { value: 'pika',     label: '⚡ Pika 2.0',    desc: 'เน้น creative & stylized' },
-  { value: 'sora',     label: '🌀 Sora',        desc: 'OpenAI — เน้น physics & world' },
-  { value: 'vidu',     label: '🎭 Vidu',        desc: 'เน้นตัวละครและ story' },
+  { value: 'gemini',  label: '✨ Gemini Pro',   desc: 'Google — วิเคราะห์สินค้าลึก ภาษาไทยเป๊ะ' },
+  { value: 'kling',   label: '🎬 Kling AI',     desc: 'Kuaishou — เน้น motion สมจริง' },
+  { value: 'runway',  label: '🛫 Runway Gen-4', desc: 'เน้น cinematic & effects' },
+  { value: 'hailuo',  label: '🌊 Hailuo AI',   desc: 'MiniMax — เน้นตัวละคร' },
+  { value: 'pika',    label: '⚡ Pika 2.0',    desc: 'เน้น creative & stylized' },
+  { value: 'sora',    label: '🌀 Sora',        desc: 'OpenAI — เน้น physics & world' },
+  { value: 'vidu',    label: '🎭 Vidu',        desc: 'เน้นตัวละครและ story' },
 ]
 
 const DURATION_OPTIONS = [
@@ -38,7 +40,9 @@ const initialState = {
   productDetails: '',
 }
 
-export default function ProductForm({ onSubmit, isLoading }) {
+const MAX_DETAILS_CHARS = 500
+
+export default function ProductForm({ onSubmit, isLoading, onClear }) {
   console.log('[ProductForm.jsx][ProductForm] render ProductForm, isLoading:', isLoading)
 
   const [formData, setFormData] = useState(initialState)
@@ -57,7 +61,6 @@ export default function ProductForm({ onSubmit, isLoading }) {
     const file = e.target.files[0]
     if (!file) return
 
-    // ✅ BUG FIX: validate ขนาดจริง ไม่ใช่แค่เขียน label
     const MAX_SIZE_MB = 5
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       alert(`ไฟล์ใหญ่เกิน ${MAX_SIZE_MB}MB กรุณาเลือกไฟล์ที่เล็กกว่านี้`)
@@ -86,6 +89,14 @@ export default function ProductForm({ onSubmit, isLoading }) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // ── ล้างค่าทั้งหมด ────────────────────────────────────
+  const handleClear = () => {
+    console.log('[ProductForm.jsx][handleClear] ล้างค่าทั้งหมด')
+    setFormData(initialState)
+    handleRemoveImage()
+    if (onClear) onClear()
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     console.log('[ProductForm] กด Submit, ข้อมูลที่ส่ง:', { ...formData, hasImage: !!imageBase64 })
@@ -100,9 +111,23 @@ export default function ProductForm({ onSubmit, isLoading }) {
     onSubmit({ ...formData, imageBase64: imageBase64 || null })
   }
 
+  const detailsLength = formData.productDetails.length
+  const isDetailNearLimit = detailsLength > MAX_DETAILS_CHARS * 0.8
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h3 className="text-lg font-semibold text-gray-700 mb-5">🎬 ข้อมูลสำหรับสร้าง Video Prompt</h3>
+      {/* Header + ปุ่มล้างค่า */}
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-lg font-semibold text-gray-700">🎬 ข้อมูลสำหรับสร้าง Video Prompt</h3>
+        <button
+          type="button"
+          onClick={handleClear}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 hover:bg-red-50 rounded-xl px-3 py-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          🗑️ ล้างค่าทั้งหมด
+        </button>
+      </div>
 
       <div className="space-y-4">
 
@@ -191,24 +216,27 @@ export default function ProductForm({ onSubmit, isLoading }) {
           </div>
         </div>
 
-        {/* Style */}
+        {/* Style — ภาษาไทย พร้อม desc */}
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-2">
             สไตล์วิดีโอ <span className="text-red-400">*</span>
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {VIDEO_STYLE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => setFormData((prev) => ({ ...prev, videoStyle: opt.value }))}
-                className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${
+                className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${
                   formData.videoStyle === opt.value
                     ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:bg-purple-50'
                 }`}
               >
-                {opt.label}
+                <span className="font-medium">{opt.label}</span>
+                <span className={`text-xs mt-0.5 ${formData.videoStyle === opt.value ? 'text-purple-200' : 'text-gray-400'}`}>
+                  {opt.desc}
+                </span>
               </button>
             ))}
           </div>
@@ -237,7 +265,7 @@ export default function ProductForm({ onSubmit, isLoading }) {
           </div>
         </div>
 
-        {/* รายละเอียดสินค้า — ✅ เปลี่ยนจาก details → productDetails */}
+        {/* รายละเอียดสินค้า + character counter */}
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">
             รายละเอียดสินค้า
@@ -251,11 +279,17 @@ export default function ProductForm({ onSubmit, isLoading }) {
             onChange={handleChange}
             placeholder="เช่น เซรั่มบำรุงผิวหน้า สูตรไฮยาลูรอน ลดริ้วรอย เหมาะผู้หญิงอายุ 30+ ราคา 890 บาท กลิ่นดอกไม้อ่อนๆ บรรจุภัณฑ์สีชมพูทอง..."
             rows={4}
+            maxLength={MAX_DETAILS_CHARS}
             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 transition resize-none"
           />
-          <p className="text-xs text-gray-400 mt-1">
-            💡 ยิ่งใส่รายละเอียดสินค้ามาก Prompt ยิ่งแม่นและตรงกับสินค้าของคุณ
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-gray-400">
+              💡 ยิ่งใส่รายละเอียดสินค้ามาก Prompt ยิ่งแม่นและตรงกับสินค้าของคุณ
+            </p>
+            <span className={`text-xs font-medium ${isDetailNearLimit ? 'text-orange-500' : 'text-gray-400'}`}>
+              {detailsLength}/{MAX_DETAILS_CHARS}
+            </span>
+          </div>
         </div>
 
         {/* Submit */}

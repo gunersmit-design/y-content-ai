@@ -9,6 +9,7 @@ import { auth, db } from '@/lib/firebase'
 import ProductForm from '@/components/ProductForm'
 import ResultBox from '@/components/ResultBox'
 import DownloadButton from '@/components/DownloadButton'
+import UsageBox from '@/components/UsageBox'
 
 console.log('[dashboard/page.jsx] โหลดไฟล์ dashboard/page.jsx แล้ว')
 
@@ -35,10 +36,8 @@ function GeminiStatusBox() {
     }
   }, [])
 
-  // เช็คครั้งแรกตอน mount
   useEffect(() => { fetchStatus() }, [fetchStatus])
 
-  // สีและ label ตาม status
   const getStatusStyle = (status) => {
     switch (status) {
       case 'ok':          return { dot: 'bg-green-400', text: 'text-green-600', label: 'พร้อมใช้งาน' }
@@ -54,16 +53,13 @@ function GeminiStatusBox() {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-base">🤖</span>
           <span className="text-sm font-semibold text-gray-700">Gemini API Status</span>
           {statusData && !loading && (
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              availableCount > 0
-                ? 'bg-green-50 text-green-600'
-                : 'bg-red-50 text-red-500'
+              availableCount > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'
             }`}>
               {availableCount}/{totalCount} พร้อมใช้
             </span>
@@ -91,7 +87,6 @@ function GeminiStatusBox() {
         </div>
       </div>
 
-      {/* Loading skeleton */}
       {loading && !statusData && (
         <div className="mt-3 flex gap-2">
           {[1,2,3,4].map(i => (
@@ -100,7 +95,6 @@ function GeminiStatusBox() {
         </div>
       )}
 
-      {/* Mini status bar (collapsed) */}
       {statusData && !isExpanded && (
         <div className="mt-3 flex gap-2">
           {statusData.models.map((m) => {
@@ -119,7 +113,6 @@ function GeminiStatusBox() {
         </div>
       )}
 
-      {/* Expanded detail */}
       {statusData && isExpanded && (
         <div className="mt-3 space-y-2">
           {statusData.models.map((m) => {
@@ -131,12 +124,8 @@ function GeminiStatusBox() {
                   <span className="text-sm text-gray-700 font-medium">{m.label}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  {m.status === 'ok' && (
-                    <span className="text-xs text-gray-400">{m.latencyMs}ms</span>
-                  )}
-                  {m.error && (
-                    <span className="text-xs text-gray-400">{m.error}</span>
-                  )}
+                  {m.status === 'ok' && <span className="text-xs text-gray-400">{m.latencyMs}ms</span>}
+                  {m.error && <span className="text-xs text-gray-400">{m.error}</span>}
                   <span className={`text-xs font-medium ${s.text}`}>{s.label}</span>
                 </div>
               </div>
@@ -160,6 +149,9 @@ export default function DashboardPage() {
   const [history, setHistory]         = useState([])
   const [error, setError]             = useState(null)
   const [productName, setProductName] = useState('')
+
+  // ── refreshTrigger: เพิ่มทุกครั้งที่ generate สำเร็จ → UsageBox จะ refetch ──
+  const [usageRefreshTrigger, setUsageRefreshTrigger] = useState(0)
 
   // ── Auth Guard ────────────────────────────────────────
   useEffect(() => {
@@ -216,6 +208,14 @@ export default function DashboardPage() {
     }
   }
 
+  // ── Clear result + error ──────────────────────────────
+  const handleClear = () => {
+    console.log('[dashboard/page.jsx][handleClear] ล้าง result และ error')
+    setResult(null)
+    setError(null)
+    setProductName('')
+  }
+
   // ── Generate ──────────────────────────────────────────
   const handleGenerate = async (formData) => {
     console.log('[dashboard] เรียก API generate, formData:', formData)
@@ -239,6 +239,9 @@ export default function DashboardPage() {
 
       setResult(data.content)
       console.log('[dashboard/page.jsx] set result สำเร็จ')
+
+      // trigger UsageBox ให้ refetch
+      setUsageRefreshTrigger(prev => prev + 1)
 
       await fetchHistory(user.uid)
 
@@ -284,11 +287,18 @@ export default function DashboardPage() {
           <p className="text-gray-500 text-sm mt-1">กรอกข้อมูลสินค้า แล้วให้ AI สร้าง Content ให้คุณ</p>
         </div>
 
-        {/* Gemini Status Box */}
-        <GeminiStatusBox />
+        {/* Status row: Gemini API + Usage แบบ 2 คอลัมน์ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <GeminiStatusBox />
+          <UsageBox userId={user?.uid} refreshTrigger={usageRefreshTrigger} />
+        </div>
 
         {/* Form */}
-        <ProductForm onSubmit={handleGenerate} isLoading={isLoading} />
+        <ProductForm
+          onSubmit={handleGenerate}
+          isLoading={isLoading}
+          onClear={handleClear}
+        />
 
         {/* Error */}
         {error && (
