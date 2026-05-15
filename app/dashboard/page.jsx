@@ -53,40 +53,49 @@ function GeminiStatusBox() {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-base">🤖</span>
-          <span className="text-sm font-semibold text-gray-700">Gemini API Status</span>
+
+      {/* ── Header ── */}
+      {/* [แก้ข้อ 2] เปลี่ยนเป็น flex-col บนจอเล็ก → flex-row บนจอใหญ่ ป้องกัน overflow */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+        {/* ชื่อ + badge */}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-base shrink-0">🤖</span>
+          <span className="text-sm font-semibold text-gray-700 truncate">Gemini API Status</span>
           {statusData && !loading && (
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
               availableCount > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'
             }`}>
               {availableCount}/{totalCount} พร้อมใช้
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* ปุ่มควบคุม */}
+        {/* [แก้ข้อ 2] จัดชิดซ้ายบนมือถือ ชิดขวาบนจอใหญ่ ไม่มีขยายเกินกรอบ */}
+        <div className="flex items-center gap-2 flex-wrap">
           {lastChecked && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-400 whitespace-nowrap">
               เช็คล่าสุด {lastChecked.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
           <button
             onClick={fetchStatus}
             disabled={loading}
-            className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 hover:bg-purple-50 rounded-lg px-2.5 py-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 hover:bg-purple-50 rounded-lg px-2.5 py-1 transition disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {loading ? '⏳' : '🔄 รีเฟรช'}
           </button>
           <button
             onClick={() => setIsExpanded(p => !p)}
-            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1 transition"
+            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1 transition whitespace-nowrap"
           >
             {isExpanded ? '▲ ย่อ' : '▼ รายละเอียด'}
           </button>
         </div>
       </div>
 
+      {/* Loading skeleton */}
       {loading && !statusData && (
         <div className="mt-3 flex gap-2">
           {[1,2,3,4].map(i => (
@@ -95,17 +104,20 @@ function GeminiStatusBox() {
         </div>
       )}
 
+      {/* Collapsed view */}
       {statusData && !isExpanded && (
-        <div className="mt-3 flex gap-2">
+        // [แก้ข้อ 2] grid-cols-2 บนมือถือ → grid-cols-4 บนจอใหญ่ ไม่ล้นออกไปด้านข้าง
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {statusData.models.map((m) => {
             const s = getStatusStyle(m.status)
             return (
               <div
                 key={m.name}
-                className="flex-1 flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5"
+                className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5 min-w-0"
                 title={m.error || s.label}
               >
                 <span className={`w-2 h-2 rounded-full shrink-0 ${s.dot} ${m.status === 'ok' ? 'animate-pulse' : ''}`} />
+                {/* [แก้ข้อ 2] truncate ป้องกันชื่อยาวล้น */}
                 <span className="text-xs text-gray-600 truncate">{m.label}</span>
               </div>
             )
@@ -113,20 +125,22 @@ function GeminiStatusBox() {
         </div>
       )}
 
+      {/* Expanded view */}
       {statusData && isExpanded && (
         <div className="mt-3 space-y-2">
           {statusData.models.map((m) => {
             const s = getStatusStyle(m.status)
             return (
-              <div key={m.name} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
-                <div className="flex items-center gap-2">
+              <div key={m.name} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${s.dot} ${m.status === 'ok' ? 'animate-pulse' : ''}`} />
-                  <span className="text-sm text-gray-700 font-medium">{m.label}</span>
+                  {/* [แก้ข้อ 2] truncate ชื่อ model ไม่ล้น */}
+                  <span className="text-sm text-gray-700 font-medium truncate">{m.label}</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 shrink-0">
                   {m.status === 'ok' && <span className="text-xs text-gray-400">{m.latencyMs}ms</span>}
-                  {m.error && <span className="text-xs text-gray-400">{m.error}</span>}
-                  <span className={`text-xs font-medium ${s.text}`}>{s.label}</span>
+                  {m.error && <span className="text-xs text-gray-400 hidden sm:inline">{m.error}</span>}
+                  <span className={`text-xs font-medium ${s.text} whitespace-nowrap`}>{s.label}</span>
                 </div>
               </div>
             )
@@ -146,6 +160,8 @@ export default function DashboardPage() {
   const [authLoading, setAuthLoading] = useState(true)
   const [isLoading, setIsLoading]     = useState(false)
   const [result, setResult]           = useState(null)
+  // [แก้ข้อ 3] เพิ่ม state สำหรับ characterContent แยกต่างหาก
+  const [characterContent, setCharacterContent] = useState(null)
   const [history, setHistory]         = useState([])
   const [error, setError]             = useState(null)
   const [productName, setProductName] = useState('')
@@ -210,8 +226,10 @@ export default function DashboardPage() {
 
   // ── Clear result + error ──────────────────────────────
   const handleClear = () => {
-    console.log('[dashboard/page.jsx][handleClear] ล้าง result และ error')
+    console.log('[dashboard/page.jsx][handleClear] ล้าง result, characterContent และ error')
     setResult(null)
+    // [แก้ข้อ 3] ล้าง characterContent ด้วยเวลากด Clear
+    setCharacterContent(null)
     setError(null)
     setProductName('')
   }
@@ -223,6 +241,8 @@ export default function DashboardPage() {
     setIsLoading(true)
     setError(null)
     setResult(null)
+    // [แก้ข้อ 3] ล้าง characterContent ก่อน generate ใหม่
+    setCharacterContent(null)
     setProductName(formData.productName)
 
     try {
@@ -234,11 +254,15 @@ export default function DashboardPage() {
 
       const data = await response.json()
       console.log('[dashboard] ได้รับผลลัพธ์แล้ว status:', response.status)
+      // [แก้ข้อ 3] log ให้เห็น characterContent ที่ได้จาก API
+      console.log('[dashboard/page.jsx] characterContent length:', data.characterContent?.length ?? 0)
 
       if (!response.ok) throw new Error(data.error || 'เกิดข้อผิดพลาดจาก API')
 
       setResult(data.content)
-      console.log('[dashboard/page.jsx] set result สำเร็จ')
+      // [แก้ข้อ 3] รับ characterContent จาก API แล้วเก็บใน state
+      setCharacterContent(data.characterContent || null)
+      console.log('[dashboard/page.jsx] set result และ characterContent สำเร็จ ✅')
 
       // trigger UsageBox ให้ refetch
       setUsageRefreshTrigger(prev => prev + 1)
@@ -308,9 +332,10 @@ export default function DashboardPage() {
         )}
 
         {/* Result */}
+        {/* [แก้ข้อ 3] ส่ง characterContent ไปให้ ResultBox แสดงกล่องที่ 2 */}
         {result && (
           <div className="space-y-4">
-            <ResultBox result={result} />
+            <ResultBox result={result} characterContent={characterContent} />
             <DownloadButton content={result} productName={productName} />
           </div>
         )}
@@ -333,8 +358,13 @@ export default function DashboardPage() {
                         : 'กำลังบันทึก...'}
                     </p>
                   </div>
+                  {/* [แก้ข้อ 3] กด "ดูผลลัพธ์" จากประวัติให้โหลด characterPrompt ด้วย */}
                   <button
-                    onClick={() => setResult(item.result)}
+                    onClick={() => {
+                      console.log('[dashboard/page.jsx][history] โหลดผลลัพธ์จากประวัติ id:', item.id)
+                      setResult(item.result)
+                      setCharacterContent(item.characterPrompt || null)
+                    }}
                     className="text-xs text-green-600 hover:text-green-800 border border-green-200 rounded-lg px-2.5 py-1 transition"
                   >
                     ดูผลลัพธ์
