@@ -96,10 +96,11 @@ function GeminiStatusBox() {
       </div>
 
       {/* Loading skeleton */}
+      {/* [แก้ข้อ 2] skeleton ใช้ grid เหมือน collapsed view → ไม่ล้นจอมือถือ */}
       {loading && !statusData && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[1,2,3,4].map(i => (
-            <div key={i} className="flex-1 h-8 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-8 bg-gray-100 rounded-lg animate-pulse" />
           ))}
         </div>
       )}

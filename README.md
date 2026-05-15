@@ -7,8 +7,14 @@ git hub + Vercel ที่ขึ้นเซิฟ
 
 อยู่ในบันชี gunnersmit
 
-firebase logout
-firebase login
+
+
+คำสั่งอัพงาน ไม่ต้องล็อกอิน/เอ้า
+
+
+git add .
+git commit -m "update"
+git push
 
 
 // Import the functions you need from the SDKs you need
@@ -62,9 +68,3 @@ const analytics = getAnalytics(app);
 
 
 
-คำสั่งอัพงาน
-
-
-git add .
-git commit -m "update"
-git push
