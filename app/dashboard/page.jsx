@@ -247,9 +247,16 @@ export default function DashboardPage() {
     setProductName(formData.productName)
 
     try {
+      // ── ดึง Firebase ID Token ก่อน fetch ──────────────────
+      const idToken = await user.getIdToken()
+      console.log('[dashboard/page.jsx][handleGenerate] ได้ idToken แล้ว ✅')
+
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,   // ← เพิ่มตรงนี้
+        },
         body: JSON.stringify({ ...formData, userId: user.uid }),
       })
 

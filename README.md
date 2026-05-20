@@ -46,7 +46,8 @@ const analytics = getAnalytics(app);
 สิ่งที่ต้องเพิ่ม/ทำ
 
 
-
+1 กรุณาเข้าสู่ระบบก่อนใช้งาน (Unauthorized)Failed to load resource: the server responded with a status of 401 ()
+-เช็คให้หน่อยว่าทำไมทำงานไม่ได้ทั้งๆที่ผมก็ลอคอินแล้ว หรือต้องการโค้ดหน้าไหนเพิ่มบอก
 
 
 
