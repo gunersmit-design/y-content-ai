@@ -5,120 +5,109 @@ import { useState } from 'react'
 
 console.log('[ResultBox.jsx] โหลดไฟล์ ResultBox.jsx แล้ว')
 
-// ── Copy with fallback ────────────────────────────────────
 async function copyToClipboard(text) {
   if (navigator?.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch (_) {}
+    try { await navigator.clipboard.writeText(text); return true } catch (_) {}
   }
   try {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0'
-    document.body.appendChild(textarea)
-    textarea.focus()
-    textarea.select()
+    const el = document.createElement('textarea')
+    el.value = text
+    el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0'
+    document.body.appendChild(el); el.focus(); el.select()
     const ok = document.execCommand('copy')
-    document.body.removeChild(textarea)
+    document.body.removeChild(el)
     return ok
-  } catch (_) {
-    return false
-  }
+  } catch (_) { return false }
 }
 
-// ── CopyButton Component ──────────────────────────────────
 function CopyButton({ text, label = 'Copy ทั้งหมด' }) {
-  const [copied, setCopied]     = useState(false)
-  const [failed, setFailed]     = useState(false)
+  const [state, setState] = useState('idle') // idle | copied | failed
 
   const handleCopy = async () => {
-    console.log('[ResultBox.jsx][CopyButton] กด copy, text length:', text?.length)
     const ok = await copyToClipboard(text)
-    if (ok) {
-      setCopied(true)
-      setFailed(false)
-      console.log('[ResultBox.jsx][CopyButton] copy สำเร็จ')
-      setTimeout(() => setCopied(false), 2000)
-    } else {
-      setFailed(true)
-      console.warn('[ResultBox.jsx][CopyButton] copy ล้มเหลว — fallback ก็ไม่ได้')
-      setTimeout(() => setFailed(false), 3000)
-    }
+    setState(ok ? 'copied' : 'failed')
+    setTimeout(() => setState('idle'), 2000)
   }
 
   return (
     <button
       onClick={handleCopy}
       className={`flex items-center gap-2 text-sm font-medium rounded-xl px-4 py-2 transition-all whitespace-nowrap ${
-        copied
-          ? 'bg-green-500 text-white'
-          : failed
-          ? 'bg-red-500 text-white'
-          : 'bg-purple-600 hover:bg-purple-700 text-white'
+        state === 'copied' ? 'bg-green-500 text-white scale-95'
+        : state === 'failed' ? 'bg-red-500 text-white'
+        : 'bg-purple-600 hover:bg-purple-700 active:scale-95 text-white'
       }`}
     >
-      {copied ? '✅ Copied!' : failed ? '❌ เลือกข้อความเองนะครับ' : `📋 ${label}`}
+      {state === 'copied' ? '✅ Copied!' : state === 'failed' ? '❌ ลองใหม่' : `📋 ${label}`}
     </button>
   )
 }
 
-// ── ResultCard Component ──────────────────────────────────
-function ResultCard({ title, content, copyLabel, accentColor = 'purple' }) {
-  console.log(`[ResultBox.jsx][ResultCard] render "${title}", content length: ${content?.length}`)
-
-  const accentMap = {
-    purple: { header: 'text-purple-700', border: 'border-purple-100', bg: 'bg-purple-50/40' },
-    indigo: { header: 'text-indigo-700', border: 'border-indigo-100', bg: 'bg-indigo-50/40' },
-  }
-  const accent = accentMap[accentColor] || accentMap.purple
-
-  if (!content) {
-    console.log(`[ResultBox.jsx][ResultCard] "${title}" — content ว่าง ไม่ render`)
-    return null
-  }
-
+function ResultCard({ title, badge, content, copyLabel, gradient, borderColor, badgeCls }) {
+  if (!content) return null
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border ${accent.border} p-4 sm:p-6 space-y-3`}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h3 className={`text-base sm:text-lg font-semibold ${accent.header}`}>{title}</h3>
+    <div className={`rounded-2xl shadow-sm border ${borderColor} overflow-hidden`}>
+      {/* Header */}
+      <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 ${gradient}`}>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{title}</h3>
+          {badge && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeCls}`}>{badge}</span>
+          )}
+        </div>
         <CopyButton text={content} label={copyLabel} />
       </div>
-      <pre className={`w-full ${accent.bg} border border-gray-200 rounded-xl p-4 sm:p-5 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-sans overflow-auto max-h-[60vh]`}>
-        {content}
-      </pre>
+      {/* Content */}
+      <div className="bg-white px-5 py-4">
+        <pre className="w-full text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-sans overflow-auto max-h-[60vh]">
+          {content}
+        </pre>
+      </div>
     </div>
   )
 }
 
-// ── ResultBox — main export ───────────────────────────────
 export default function ResultBox({ result, characterContent }) {
-  console.log('[ResultBox.jsx][ResultBox] render, result length:', result?.length, '| characterContent length:', characterContent?.length)
-
-  if (!result) {
-    console.log('[ResultBox.jsx][ResultBox] ไม่มี result → ไม่ render')
-    return null
-  }
+  if (!result) return null
 
   return (
     <div className="space-y-4">
+
       {/* กล่อง 1 — Video Prompt */}
       <ResultCard
         title="✅ Video Prompt ที่สร้างได้"
+        badge="Video / Content"
         content={result}
         copyLabel="Copy Video Prompt"
-        accentColor="purple"
+        gradient="bg-gradient-to-r from-purple-50 to-fuchsia-50"
+        borderColor="border-purple-200"
+        badgeCls="bg-purple-100 text-purple-700"
       />
 
-      {/* กล่อง 2 — Character Prompt (แสดงเฉพาะถ้ามีข้อมูล) */}
+      {/* กล่อง 2 — Character Prompt */}
       {characterContent && (
-        <ResultCard
-          title="🎭 Character Prompt (สร้างรูปตัวละคร)"
-          content={characterContent}
-          copyLabel="Copy Character Prompt"
-          accentColor="indigo"
-        />
+        <>
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400 font-medium">Character Prompt แยกต่างหาก</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          <ResultCard
+            title="🎭 Character Prompt"
+            badge="สร้างรูปตัวละคร"
+            content={characterContent}
+            copyLabel="Copy Character Prompt"
+            gradient="bg-gradient-to-r from-indigo-50 to-blue-50"
+            borderColor="border-indigo-200"
+            badgeCls="bg-indigo-100 text-indigo-700"
+          />
+
+          <p className="text-xs text-gray-400 text-center">
+            💡 นำ Character Prompt ไปใช้กับ Midjourney, DALL-E, Stable Diffusion ได้เลย
+          </p>
+        </>
       )}
     </div>
   )

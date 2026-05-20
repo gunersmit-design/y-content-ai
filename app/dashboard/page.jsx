@@ -10,6 +10,7 @@ import ProductForm from '@/components/ProductForm'
 import ResultBox from '@/components/ResultBox'
 import DownloadButton from '@/components/DownloadButton'
 import UsageBox from '@/components/UsageBox'
+import LoadingOverlay from '@/components/LoadingOverlay'
 
 console.log('[dashboard/page.jsx] โหลดไฟล์ dashboard/page.jsx แล้ว')
 
@@ -247,16 +248,9 @@ export default function DashboardPage() {
     setProductName(formData.productName)
 
     try {
-      // ── ดึง Firebase ID Token ก่อน fetch ──────────────────
-      const idToken = await user.getIdToken()
-      console.log('[dashboard/page.jsx][handleGenerate] ได้ idToken แล้ว ✅')
-
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,   // ← เพิ่มตรงนี้
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, userId: user.uid }),
       })
 
@@ -297,6 +291,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+
+      {/* Loading Overlay */}
+      <LoadingOverlay isVisible={isLoading} />
 
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
