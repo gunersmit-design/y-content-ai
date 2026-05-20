@@ -40,7 +40,7 @@ const initialState = {
   productDetails: '',
 }
 
-const MAX_DETAILS_CHARS = 500
+const MAX_DETAILS_CHARS = 1000
 
 export default function ProductForm({ onSubmit, isLoading, onClear }) {
   console.log('[ProductForm.jsx][ProductForm] render ProductForm, isLoading:', isLoading)

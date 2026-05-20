@@ -1,9 +1,86 @@
 // app/api/generate/route.js
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/firebase-admin'
-import { FieldValue } from 'firebase-admin/firestore'
+import { db }           from '@/lib/firebase-admin'
+import { auth as adminAuth } from 'firebase-admin'   // ← [แก้ข้อ 2] ใช้ verifyIdToken
+import { getAuth }      from 'firebase-admin/auth'   // ← [แก้ข้อ 2] Admin Auth SDK
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 
 console.log('[route.js] โหลดไฟล์ api/generate/route.js แล้ว')
+
+// ── [แก้ข้อ 3] Daily Limit ต่อ AI (ฝั่ง Server เพื่อกันการ bypass) ────────────
+const SERVER_DAILY_LIMITS = {
+  gemini:  20,
+  kling:   10,
+  runway:  10,
+  hailuo:  10,
+  pika:    10,
+  sora:     5,
+  vidu:    10,
+}
+const DEFAULT_LIMIT = 10
+
+/**
+ * [แก้ข้อ 3] นับจำนวนครั้งที่ user ใช้ AI นั้นวันนี้จาก Firestore (ฝั่ง server)
+ * คืน { used, limit, remaining, exceeded }
+ */
+async function checkDailyLimit(userId, aiTarget) {
+  console.log(`[route.js][checkDailyLimit] ตรวจสอบ limit: userId=${userId}, aiTarget=${aiTarget}`)
+
+  const limit = SERVER_DAILY_LIMITS[aiTarget] ?? DEFAULT_LIMIT
+
+  const now   = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+
+  try {
+    const snapshot = await db.collection('history')
+      .where('userId',    '==', userId)
+      .where('aiTarget',  '==', aiTarget)
+      .where('createdAt', '>=', Timestamp.fromDate(start))
+      .where('createdAt', '<=', Timestamp.fromDate(end))
+      .get()
+
+    const used      = snapshot.size
+    const remaining = Math.max(limit - used, 0)
+    const exceeded  = used >= limit
+
+    console.log(`[route.js][checkDailyLimit] userId=${userId} aiTarget=${aiTarget}: used=${used}/${limit} exceeded=${exceeded}`)
+    return { used, limit, remaining, exceeded }
+  } catch (err) {
+    // ถ้า Firestore query ล้มเหลว → อนุญาตต่อไป (fail open) แต่ log ไว้
+    console.error('[route.js][checkDailyLimit] ERROR: query ล้มเหลว (fail-open):', err.message)
+    return { used: 0, limit, remaining: limit, exceeded: false }
+  }
+}
+
+/**
+ * [แก้ข้อ 2] ตรวจสอบ Firebase ID Token จาก Authorization header
+ * คืน decodedToken หรือ null ถ้า token ไม่ถูกต้อง
+ */
+async function verifyFirebaseToken(request) {
+  const authHeader = request.headers.get('Authorization') || ''
+  console.log('[route.js][verifyFirebaseToken] Authorization header มีค่า:', !!authHeader)
+
+  if (!authHeader.startsWith('Bearer ')) {
+    console.warn('[route.js][verifyFirebaseToken] ⚠️ ไม่พบ Bearer token ใน Authorization header')
+    return null
+  }
+
+  const idToken = authHeader.replace('Bearer ', '').trim()
+  if (!idToken) {
+    console.warn('[route.js][verifyFirebaseToken] ⚠️ idToken ว่างเปล่า')
+    return null
+  }
+
+  try {
+    const decodedToken = await getAuth().verifyIdToken(idToken)
+    console.log('[route.js][verifyFirebaseToken] ✅ token ถูกต้อง uid:', decodedToken.uid)
+    return decodedToken
+  } catch (err) {
+    console.error('[route.js][verifyFirebaseToken] ❌ token ไม่ถูกต้อง:', err.message)
+    return null
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  TIER 1 — Gemini API โดยตรง
@@ -460,6 +537,18 @@ ${imageBase64 ? '4. วิเคราะห์ภาพอ้างอิงท
 export async function POST(request) {
   console.log('[route.js][POST] รับ request เข้ามา')
 
+  // ── [แก้ข้อ 2] ตรวจสอบ Firebase Auth Token ก่อนทุกอย่าง ────────────────
+  console.log('[route.js][POST] 🔐 เริ่มตรวจสอบ Firebase Auth token...')
+  const decodedToken = await verifyFirebaseToken(request)
+  if (!decodedToken) {
+    console.error('[route.js][POST] ❌ AUTH FAILED: token ไม่ถูกต้องหรือไม่มี token')
+    return NextResponse.json(
+      { error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน (Unauthorized)' },
+      { status: 401 }
+    )
+  }
+  console.log('[route.js][POST] ✅ Auth ผ่าน uid:', decodedToken.uid)
+
   let body
   try {
     body = await request.json()
@@ -479,6 +568,15 @@ export async function POST(request) {
     imageBase64Length: imageBase64?.length ?? 0,
   })
 
+  // ── [แก้ข้อ 2] ตรวจสอบว่า userId ตรงกับ token จริง (ป้องกัน spoof userId) ──
+  if (userId !== decodedToken.uid) {
+    console.error(`[route.js][POST] ❌ userId ไม่ตรงกับ token: body.userId=${userId}, token.uid=${decodedToken.uid}`)
+    return NextResponse.json(
+      { error: 'userId ไม่ตรงกับ token (Forbidden)' },
+      { status: 403 }
+    )
+  }
+
   if (!userId || !productName || !videoStyle || !duration) {
     console.error('[route.js][POST] ERROR: ข้อมูลไม่ครบ — missing:', {
       userId: !userId,
@@ -493,9 +591,29 @@ export async function POST(request) {
   }
   console.log('[route.js][POST] validate ผ่านแล้ว ✅')
 
+  // ── [แก้ข้อ 3] ตรวจสอบ Daily Limit ฝั่ง Server ─────────────────────────
+  const targetAI = aiTarget || 'gemini'
+  console.log(`[route.js][POST] 📊 ตรวจสอบ Daily Limit สำหรับ aiTarget: ${targetAI}`)
+  const limitInfo = await checkDailyLimit(userId, targetAI)
+  console.log('[route.js][POST] limitInfo:', limitInfo)
+
+  if (limitInfo.exceeded) {
+    console.warn(`[route.js][POST] ⚠️ LIMIT EXCEEDED: userId=${userId} aiTarget=${targetAI} used=${limitInfo.used}/${limitInfo.limit}`)
+    return NextResponse.json(
+      {
+        error: `คุณใช้งาน ${targetAI.toUpperCase()} ครบ ${limitInfo.limit} ครั้งแล้ววันนี้ กรุณาลองใหม่พรุ่งนี้`,
+        limitExceeded: true,
+        used: limitInfo.used,
+        limit: limitInfo.limit,
+      },
+      { status: 429 }
+    )
+  }
+  console.log(`[route.js][POST] ✅ Limit OK — เหลืออีก ${limitInfo.remaining} ครั้ง`)
+
   let result
   try {
-    result = await callAI({ productName, videoStyle, duration, productDetails, aiTarget, imageBase64 })
+    result = await callAI({ productName, videoStyle, duration, productDetails, aiTarget: targetAI, imageBase64 })
     console.log(`[route.js][POST] AI ตอบกลับสำเร็จ tier: ${result.tier}, length: ${result.text.length}`)
   } catch (err) {
     console.error('[route.js][POST] ERROR: AI ทุก Tier ล้มเหลว:', err.message)
@@ -526,7 +644,7 @@ export async function POST(request) {
       productName,
       videoStyle,
       duration,
-      aiTarget: aiTarget || 'gemini',
+      aiTarget: targetAI,
       hasImage: !!imageBase64,
       result: videoPart,
       characterPrompt: characterPart,
@@ -543,5 +661,9 @@ export async function POST(request) {
     content: videoPart,
     characterContent: characterPart,
     tierUsed: result.tier,
+    // [แก้ข้อ 3] แจ้ง remaining กลับไปให้ frontend อัปเดต UI ได้ทันที
+    usageRemaining: limitInfo.remaining - 1,  // -1 เพราะเพิ่งใช้ไป 1 ครั้ง
+    usageUsed: limitInfo.used + 1,
+    usageLimit: limitInfo.limit,
   }, { status: 200 })
 }
